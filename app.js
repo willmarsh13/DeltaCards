@@ -225,7 +225,7 @@
             <div class="maker">${esc(f.maker)}</div>
             <h2 class="model">${esc(f.model)}</h2>
             <div class="aka">${esc(f.aka || '')}</div>
-            <div class="operator">This photo is a <b>${esc(exact.maker)} ${esc(exact.model)}</b> · flown by ${esc(exact.operator)}</div>
+            <div class="operator">This photo: <b>${esc(exact.maker)} ${esc(exact.model)}</b> · flown by ${esc(exact.operator)}</div>
           </div>
           <div class="codes">${f.members.length > 1 ? 'ICAO types' : 'ICAO type'}<strong>${f.members.map(m => esc(m.icao)).join(' / ')}</strong>${f.fleet === 'regional' ? '<span class="dc">Delta Connection</span>' : 'Delta mainline'} · ${f.body === 'wide' ? 'Widebody' : 'Narrowbody'}</div>
         </div>
