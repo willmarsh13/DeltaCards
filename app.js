@@ -366,7 +366,7 @@
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k === ' ' || k === 'enter') { if (e.target.closest('button') && k === 'enter') return; e.preventDefault(); flip(); }
+    if (k === ' ' || k === 'enter') { if (e.target.closest && e.target.closest('button') && k === 'enter') return; e.preventDefault(); flip(); }
     else if (k === 'arrowright') go(1);
     else if (k === 'arrowleft') go(-1);
     else if (k === 'c') $('cheatToggle').click();
