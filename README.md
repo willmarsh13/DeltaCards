@@ -2,12 +2,14 @@
 
 Flashcards for every jet type flying with a Delta tail: 17 mainline types plus 4 Delta Connection regionals (CRJ700, CRJ900, E170, E175).
 
+**Live site:** https://willmarsh13.github.io/DeltaCards/
+
 ## How to open it
 
-The site is 4 plain files with no install or build step. You need an internet connection, because the photos load from Wikimedia Commons.
+The site is 5 plain files with no install or build step. You need an internet connection, because the photos load from Wikimedia Commons.
 
 1. Get the folder. In this project's Library (or `/mnt/project-files/delta-flashcards/`), download all of these into one folder on your computer, e.g. `~/Downloads/delta-flashcards/`:
-   `index.html`, `styles.css`, `app.js`, `data.js`
+   `index.html`, `styles.css`, `app.js`, `data.js`, `families.js`
 2. Double-click `index.html`. It opens in your default browser. That's it.
 
 ### Optional: run it as a local web server
@@ -20,18 +22,19 @@ python3 -m http.server 8080        # or: npx serve .
 Then open http://localhost:8080. On your phone, open http://<your-computer's-LAN-IP>:8080.
 
 ### Optional: put it online
-Drag the folder onto Netlify Drop (app.netlify.com/drop) or push it to a GitHub repo with GitHub Pages turned on. It's all static, so any static host works.
+It's already on GitHub Pages (link above), built from the `main` branch. Push to `main` and it updates in about a minute.
 
 ## Using it
 - Click the card or press **Space** to flip.
 - **C** toggles the cheats (what to look for). **P** shows another photo of the same type.
 - **K** = got it, **J** = missed it. Missed cards come back a few cards later.
 - **Quiz** mode (top right) gives 4 choices; press **1–4**.
+- **Family / Exact variant** switch: answer at the model level (A330, 757, CRJ: 12 cards) or the exact variant (A330-300, 757-200, CRJ900: 21 cards). In Family mode the back tells you which exact variant the photo is.
 - Filters: All / Mainline / Delta Connection / Narrowbody / Widebody / Airbus / Boeing.
 - "Your weak spots" tracks your accuracy per type, saved in your browser.
 
 ## Updating the data
-Everything lives in `data.js` (one entry per type: counts, seats, dates, cheats, facts, photos). Edit it and refresh.
+Per-type data lives in `data.js` (counts, seats, dates, cheats, facts, photos). `families.js` groups types into families and holds the family-level cheats. Edit and refresh.
 
 ## Data sources
 - Mainline counts and seat configs: Delta Form 10-Q (Sept 30, 2026), via Wikipedia's Delta fleet table

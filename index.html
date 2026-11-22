@@ -35,6 +35,10 @@
     <button class="filter" data-filter="Airbus">Airbus</button>
     <button class="filter" data-filter="Boeing">Boeing</button>
   </div>
+  <div class="level" role="group" aria-label="How specific to be">
+    <button class="lvl" data-level="family" aria-pressed="false" title="One card per model, like A330 or 757">Family</button>
+    <button class="lvl" data-level="variant" aria-pressed="true" title="One card per exact variant, like A330-300">Exact variant</button>
+  </div>
   <div class="tally" aria-live="polite">
     <span id="pos">1 / 17</span>
     <span class="dot">·</span>
@@ -84,6 +88,7 @@
 </footer>
 
 <script src="data.js"></script>
+<script src="families.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

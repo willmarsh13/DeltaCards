@@ -2,6 +2,23 @@
   const FLEET = window.FLEET || [];
   const META = window.FLEET_META || {};
   const byId = Object.fromEntries(FLEET.map(t => [t.id, t]));
+
+  // Family mode: one card per major version (A330, 757, CRJ). Each family card looks like a
+  // type to the rest of the app, with every member's photos pooled and tagged with its exact type.
+  const FAMS = (window.FAMILIES || []).map(f => {
+    const ms = f.members.map(id => byId[id]).filter(Boolean);
+    const one = ms.length === 1 ? ms[0] : null;
+    return {
+      id: 'f:' + f.id, isFamily: true, maker: f.maker, model: f.name, members: ms,
+      body: ms[0] && ms[0].body, fleet: ms[0] && ms[0].fleet,
+      operator: [...new Set(ms.map(m => m.operator))].join(' / '),
+      aka: f.aka || (one ? one.aka : ''),
+      cheats: f.cheats || (one ? one.cheats : []),
+      confusedWith: (f.confusedWith || []).map(x => 'f:' + x),
+      photos: ms.flatMap(m => m.photos.map(p => ({ ...p, typeId: m.id })))
+    };
+  }).filter(f => f.members.length);
+  FAMS.forEach(f => { byId[f.id] = f; });
   const $ = id => document.getElementById(id);
 
   // ---------- persistence (best effort) ----------
@@ -12,6 +29,7 @@
 
   const state = {
     mode: store.get('mode', 'cards'),
+    level: store.get('level', 'variant'), // 'variant' = exact type (A330-300), 'family' = major version (A330)
     filter: store.get('filter', 'all'),
     cheats: store.get('cheats', false),
     // deck holds one entry per showing: { id, result: true|false|null, photo, choice, requeue }
@@ -24,6 +42,7 @@
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const full = t => `${t.maker} ${t.model}`;
+  const pool = () => state.level === 'family' && FAMS.length ? FAMS : FLEET;
 
   function matches(t, f) {
     if (f === 'all') return true;
@@ -37,7 +56,7 @@
   function buildDeck(keepScore) {
     if (keepScore) { const s = roundScore(); state.past.right += s.right; state.past.missed += s.missed; }
     else state.past = { right: 0, missed: 0 };
-    state.deck = shuffle(FLEET.filter(t => matches(t, state.filter)).map(t => t.id)).map(entry);
+    state.deck = shuffle(pool().filter(t => matches(t, state.filter)).map(t => t.id)).map(entry);
     state.idx = 0;
   }
 
@@ -123,6 +142,7 @@
   const yr = d => /^[\d~]/.test(d.year) ? esc(d.year) : '—';
 
   function renderBack(t) {
+    if (t.isFamily) return renderFamilyBack(t);
     const p = t.photos[state.photo] || t.photos[0];
     const seats = t.seats.map(s => `<dd><b>${s.total}</b> · ${esc(s.split)}</dd>`).join('');
     const stat = (v, k) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
@@ -177,12 +197,71 @@
     $('back').scrollTop = 0;
   }
 
+  function renderFamilyBack(f) {
+    const p = f.photos[state.photo] || f.photos[0];
+    const exact = byId[p.typeId];
+    const total = f.members.reduce((n, m) => n + (m.inService || 0), 0);
+    const order = f.members.reduce((n, m) => n + (m.onOrder || 0), 0);
+    const y = d => /^[\d~]/.test(d.year) ? esc(d.year) : '?';
+    const yrs = m => {
+      const shaky = [m.first, m.latest].some(d => !d.ok && /^[\d~]/.test(d.year));
+      return `${y(m.first)}–${y(m.latest)}${shaky ? '<span class="unv" title="Not confirmed from a primary source">?</span>' : ''}`;
+    };
+    const rows = f.members.map(m => `
+      <tr${m === exact ? ' class="is-this"' : ''}>
+        <td><b>${esc(m.model)}</b>${m === exact ? ' <span class="this-tag">this photo</span>' : ''}</td>
+        <td class="num">${m.inService}</td>
+        <td class="num">${m.seats[0].total}</td>
+        <td>${esc(m.mission.tag)}</td>
+        <td class="num">${yrs(m)}</td>
+      </tr>`).join('');
+    // Variant facts are written about that variant, so label them when a family has several.
+    const facts = f.members.flatMap(m => m.facts.map(x => f.members.length > 1 ? `${m.model}: ${x}` : x)).slice(0, 6);
+    const stat = (v, k) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+    $('back').innerHTML = `
+      <div class="back-inner">
+        <div class="ident">
+          <div>
+            <div class="maker">${esc(f.maker)}</div>
+            <h2 class="model">${esc(f.model)}</h2>
+            <div class="aka">${esc(f.aka || '')}</div>
+            <div class="operator">This photo is a <b>${esc(exact.maker)} ${esc(exact.model)}</b> · flown by ${esc(exact.operator)}</div>
+          </div>
+          <div class="codes">${f.members.length > 1 ? 'ICAO types' : 'ICAO type'}<strong>${f.members.map(m => esc(m.icao)).join(' / ')}</strong>${f.fleet === 'regional' ? '<span class="dc">Delta Connection</span>' : 'Delta mainline'} · ${f.body === 'wide' ? 'Widebody' : 'Narrowbody'}</div>
+        </div>
+
+        <div class="fam-wide">
+          <div class="label">${f.fleet === 'regional' ? 'In Delta Connection colors' : 'At Delta'}</div>
+          <table class="variants">
+            <thead><tr><th>Variant</th><th class="num">In fleet</th><th class="num">Seats</th><th>Where it flies</th><th class="num">First–latest</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="stats">
+            ${stat(total, 'In fleet, all variants')}
+            ${stat(order || '—', 'On order')}
+            ${stat(f.members.length, f.members.length === 1 ? 'Variant' : 'Variants')}
+          </div>
+        </div>
+
+        <div class="fam-wide">
+          <div class="label">Good to know</div>
+          <ul class="facts">${facts.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+          <p class="count-note">"?" means not confirmed from a primary source. Switch to <b>Exact variant</b> for full specs on each one.</p>
+        </div>
+
+        <div class="back-foot">
+          This photo: ${esc(p.reg)}, ${p.year} · ${esc(p.author)} · <a href="${esc(p.page)}" target="_blank" rel="noopener">Wikimedia Commons</a> · <a href="${esc(p.licenseUrl || p.page)}" target="_blank" rel="noopener">${esc(p.license)}</a>
+        </div>
+      </div>`;
+    $('back').scrollTop = 0;
+  }
+
   // ---------- quiz ----------
   function distractors(t) {
-    const pool = (t.confusedWith || []).filter(id => byId[id]);
-    const same = shuffle(FLEET.filter(x => x.id !== t.id && x.body === t.body && !pool.includes(x.id)).map(x => x.id));
-    const rest = shuffle(FLEET.filter(x => x.id !== t.id && !pool.includes(x.id) && !same.includes(x.id)).map(x => x.id));
-    return shuffle(pool).concat(same, rest).slice(0, 3);
+    const cw = (t.confusedWith || []).filter(id => byId[id]);
+    const same = shuffle(pool().filter(x => x.id !== t.id && x.body === t.body && !cw.includes(x.id)).map(x => x.id));
+    const rest = shuffle(pool().filter(x => x.id !== t.id && !cw.includes(x.id) && !same.includes(x.id)).map(x => x.id));
+    return shuffle(cw).concat(same, rest).slice(0, 3);
   }
 
   function renderQuiz(t, e) {
@@ -270,7 +349,7 @@
   }
 
   function renderWeak() {
-    const rows = FLEET.map(t => ({ t, s: state.stats[t.id] })).filter(r => r.s && r.s.seen)
+    const rows = pool().map(t => ({ t, s: state.stats[t.id] })).filter(r => r.s && r.s.seen)
       .map(r => ({ ...r, pct: r.s.right / r.s.seen })).sort((a, b) => a.pct - b.pct || b.s.seen - a.s.seen);
     if (!rows.length) { $('weak').innerHTML = ''; return; }
     $('weak').innerHTML = `
@@ -343,6 +422,17 @@
     render();
   }
 
+  function setLevel(l) {
+    state.level = l; store.set('level', l);
+    syncLevel();
+    buildDeck(true); render(); renderScore(); renderWeak();
+  }
+
+  function syncLevel() {
+    document.querySelectorAll('.lvl').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.level === state.level)));
+    $('allBtn').textContent = `All ${pool().length}`;
+  }
+
   function setFilter(f) {
     state.filter = f; store.set('filter', f);
     document.querySelectorAll('.filter').forEach(b => b.classList.toggle('is-on', b.dataset.filter === f));
@@ -362,6 +452,7 @@
   $('newPhoto').onclick = e => { e.stopPropagation(); const t = current(); showPhoto(t, nextPhoto(t.id, state.photo)); };
   document.querySelectorAll('.mode').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   document.querySelectorAll('.filter').forEach(b => b.onclick = () => setFilter(b.dataset.filter));
+  document.querySelectorAll('.lvl').forEach(b => b.onclick = () => setLevel(b.dataset.level));
 
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -379,7 +470,7 @@
   });
 
   // ---------- boot ----------
-  $('allBtn').textContent = `All ${FLEET.length}`;
+  syncLevel();
   $('asOf').textContent = META.asOf || '';
   if (META.onOrder) $('asOf').textContent += ` On order but not yet flying (not in the deck): ${META.onOrder.map(o => `${o.model} ×${o.count}`).join(', ')}.`;
   document.querySelectorAll('.filter').forEach(b => b.classList.toggle('is-on', b.dataset.filter === state.filter));
